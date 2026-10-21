@@ -31,19 +31,61 @@ DEFAULT_ICONS = {
     "unknown": "?",
     "needs-input": "?",
 }
+DEFAULT_AGENT_WORKING_FRAMES = {
+    "claude": ("✶", "✷", "✸", "✹", "✺", "✻"),
+    "copilot": ("◉", "◎", "◉", "◎"),
+    "gpt": ("◈", "◇", "◈", "◇"),
+}
+DEFAULT_AGENT_LABEL_ICONS = {
+    "claude": "✻",
+    "copilot": "◎",
+    "gpt": "◇",
+}
+DEFAULT_AGENT_HARNESS_LABELS = {
+    "claude": "Claude",
+    "copilot": "Copilot",
+    "gpt": "GPT",
+}
+AGENT_LABEL_TOKEN = "agent_logo_line"
+HARNESS_TOKEN = "harness"
 
 
 @dataclass(frozen=True)
 class Settings:
     frames: tuple[str, ...] = DEFAULT_FRAMES
     icons: tuple[tuple[str, str], ...] = tuple(DEFAULT_ICONS.items())
+    agent_working_frames: tuple[tuple[str, tuple[str, ...]], ...] = tuple(DEFAULT_AGENT_WORKING_FRAMES.items())
+    agent_label_icons: tuple[tuple[str, str], ...] = tuple(DEFAULT_AGENT_LABEL_ICONS.items())
+    agent_harness_labels: tuple[tuple[str, str], ...] = tuple(DEFAULT_AGENT_HARNESS_LABELS.items())
     frame_seconds: float = 0.15
     done_hold_seconds: float = 6.0
 
-    def glyph(self, status: str, frame: int) -> str:
+    def glyph(self, status: str, frame: int, agent_name: str = "") -> str:
         if status == "working":
-            return self.frames[frame % len(self.frames)]
+            frames = self.frames_for_agent(agent_name)
+            return frames[frame % len(frames)]
         return dict(self.icons).get(status, dict(self.icons)["unknown"])
+
+    def frames_for_agent(self, agent_name: str) -> tuple[str, ...]:
+        if not agent_name:
+            return self.frames
+        normalized = agent_name.strip().lower()
+        return dict(self.agent_working_frames).get(normalized, self.frames)
+
+    def label_icon_for_agent(self, agent_name: str) -> str:
+        if not agent_name:
+            return ""
+        normalized = agent_name.strip().lower()
+        return dict(self.agent_label_icons).get(normalized, "")
+
+    def harness_for_agent(self, agent_name: str) -> str:
+        if not agent_name:
+            return ""
+        normalized = agent_name.strip().lower()
+        mapped = dict(self.agent_harness_labels).get(normalized)
+        if mapped:
+            return mapped
+        return agent_name
 
 
 class CrossPlatformLock:
@@ -91,6 +133,9 @@ def load_settings(path: Path | None = None) -> Settings:
         config = tomllib.load(config_file)
 
     icon_config = config.get("icons", {})
+    agent_working_config = config.get("agent-working-frames", {})
+    agent_label_config = config.get("agent-label-icons", {})
+    agent_harness_config = config.get("agent-harness-labels", {})
     animation = config.get("animation", {})
 
     frames = icon_config.get("working", DEFAULT_FRAMES)
@@ -103,6 +148,27 @@ def load_settings(path: Path | None = None) -> Settings:
         else default
         for state, default in DEFAULT_ICONS.items()
     }
+    agent_working_frames: dict[str, tuple[str, ...]] = dict(DEFAULT_AGENT_WORKING_FRAMES)
+    if isinstance(agent_working_config, dict):
+        for raw_key, raw_value in agent_working_config.items():
+            if not isinstance(raw_key, str):
+                continue
+            if isinstance(raw_value, list):
+                parsed = tuple(v for v in raw_value if isinstance(v, str) and v)
+                if parsed:
+                    agent_working_frames[raw_key.strip().lower()] = parsed
+
+    agent_label_icons: dict[str, str] = dict(DEFAULT_AGENT_LABEL_ICONS)
+    if isinstance(agent_label_config, dict):
+        for raw_key, raw_value in agent_label_config.items():
+            if isinstance(raw_key, str) and isinstance(raw_value, str) and raw_value:
+                agent_label_icons[raw_key.strip().lower()] = raw_value
+
+    agent_harness_labels: dict[str, str] = dict(DEFAULT_AGENT_HARNESS_LABELS)
+    if isinstance(agent_harness_config, dict):
+        for raw_key, raw_value in agent_harness_config.items():
+            if isinstance(raw_key, str) and isinstance(raw_value, str) and raw_value:
+                agent_harness_labels[raw_key.strip().lower()] = raw_value
 
     frame_seconds = animation.get("frame-seconds", 0.15)
     done_hold_seconds = animation.get("done-hold-seconds", 6.0)
@@ -110,6 +176,9 @@ def load_settings(path: Path | None = None) -> Settings:
     return Settings(
         frames=tuple(frames),
         icons=tuple(icons.items()),
+        agent_working_frames=tuple(agent_working_frames.items()),
+        agent_label_icons=tuple(agent_label_icons.items()),
+        agent_harness_labels=tuple(agent_harness_labels.items()),
         frame_seconds=frame_seconds if isinstance(frame_seconds, (int, float)) and frame_seconds > 0 else 0.15,
         done_hold_seconds=done_hold_seconds if isinstance(done_hold_seconds, (int, float)) and done_hold_seconds >= 0 else 6.0,
     )
@@ -133,18 +202,19 @@ def herdr(*args: str) -> dict:
         return {}
 
 
-def agents() -> list[tuple[str, str, str]]:
+def agents() -> list[tuple[str, str, str, str]]:
     data = herdr("agent", "list")
-    out: list[tuple[str, str, str]] = []
+    out: list[tuple[str, str, str, str]] = []
     for agent in data.get("result", {}).get("agents", []):
         pane = agent.get("pane_id")
         status = agent.get("agent_status")
         workspace = agent.get("workspace_id")
         tab = agent.get("tab_id")
+        agent_name = agent.get("agent")
         if isinstance(pane, str) and isinstance(status, str):
             tab_id = tab if isinstance(tab, str) else ""
             workspace_id = workspace if isinstance(workspace, str) else tab_id.partition(":")[0]
-            out.append((pane, status, workspace_id))
+            out.append((pane, status, workspace_id, agent_name if isinstance(agent_name, str) else ""))
     return out
 
 
@@ -174,8 +244,14 @@ def compose_line(glyph: str, workspace: str) -> str:
     return " ".join(part for part in (glyph, workspace) if part)
 
 
-def compose_workspace_line(settings: Settings, status: str, frame: int, label: str) -> str:
-    glyph = BLANK_ICON if status == "unknown" else settings.glyph(status, frame)
+def compose_workspace_line(
+    settings: Settings,
+    status: str,
+    frame: int,
+    label: str,
+    agent_name: str = "",
+) -> str:
+    glyph = BLANK_ICON if status == "unknown" else settings.glyph(status, frame, agent_name)
     return compose_line(glyph, label)
 
 
@@ -183,7 +259,14 @@ def frame_delay(started_at: float, now: float, interval: float) -> float:
     return max(0.0, interval - (now - started_at))
 
 
-def report(source: str, pane: str, line: str | None, status: str | None = None) -> None:
+def report(
+    source: str,
+    pane: str,
+    line: str | None,
+    status: str | None = None,
+    agent_label_icon: str = "",
+    harness_label: str = "",
+) -> None:
     args = ["pane", "report-metadata", pane, "--source", source]
     for token in LEGACY_TOKENS:
         args += ["--clear-token", token]
@@ -194,6 +277,19 @@ def report(source: str, pane: str, line: str | None, status: str | None = None) 
             args += ["--token", f"{token}={line}"]
         else:
             args += ["--clear-token", token]
+
+    if agent_label_icon:
+        args += ["--token", f"{AGENT_LABEL_TOKEN}={agent_label_icon}"]
+        display_agent = f"{agent_label_icon} {harness_label}".strip()
+        args += ["--display-agent", display_agent]
+    else:
+        args += ["--clear-token", AGENT_LABEL_TOKEN]
+        args += ["--clear-display-agent"]
+
+    if harness_label:
+        args += ["--token", f"{HARNESS_TOKEN}={harness_label}"]
+    else:
+        args += ["--clear-token", HARNESS_TOKEN]
     herdr(*args)
 
 
@@ -267,6 +363,7 @@ def animate(source: str, settings: Settings) -> int:
 
     pane_previous: dict[str, str] = {}
     pane_shown: dict[str, str] = {}
+    pane_logo_shown: dict[str, str] = {}
     pane_done_until: dict[str, float] = {}
     workspace_previous: dict[str, str] = {}
     workspace_shown: dict[str, str] = {}
@@ -285,11 +382,15 @@ def animate(source: str, settings: Settings) -> int:
             current_workspaces = workspaces()
             labels = {wid: label for wid, label, _ in current_workspaces}
             current_agents = agents()
-            live_panes = {pane for pane, _, _ in current_agents}
+            workspace_working_agent: dict[str, str] = {}
+            for _, agent_status, workspace_id, agent_name in current_agents:
+                if agent_status == "working" and workspace_id and workspace_id not in workspace_working_agent:
+                    workspace_working_agent[workspace_id] = agent_name
+            live_panes = {pane for pane, _, _, _ in current_agents}
             live_workspaces = {wid for wid, _, _ in current_workspaces}
             keep_running = False
 
-            for pane, status, workspace_id in current_agents:
+            for pane, status, workspace_id, agent_name in current_agents:
                 display_status, deadline = resolve_status(
                     status,
                     pane_previous.get(pane),
@@ -303,16 +404,20 @@ def animate(source: str, settings: Settings) -> int:
                 else:
                     pane_done_until.pop(pane, None)
 
-                line = compose_line(settings.glyph(display_status, frame), labels.get(workspace_id, ""))
-                if pane_shown.get(pane) != line:
-                    report(source, pane, line, display_status)
+                line = compose_line(settings.glyph(display_status, frame, agent_name), labels.get(workspace_id, ""))
+                label_icon = settings.label_icon_for_agent(agent_name)
+                harness_label = settings.harness_for_agent(agent_name)
+                if pane_shown.get(pane) != line or pane_logo_shown.get(pane) != label_icon:
+                    report(source, pane, line, display_status, label_icon, harness_label)
                     pane_shown[pane] = line
+                    pane_logo_shown[pane] = label_icon
 
                 keep_running |= display_status == "working" or pane in pane_done_until
 
             for pane in set(pane_shown) - live_panes:
                 report(source, pane, None)
                 pane_shown.pop(pane, None)
+                pane_logo_shown.pop(pane, None)
                 pane_previous.pop(pane, None)
                 pane_done_until.pop(pane, None)
 
@@ -330,7 +435,14 @@ def animate(source: str, settings: Settings) -> int:
                 else:
                     workspace_done_until.pop(wid, None)
 
-                line = compose_workspace_line(settings, display_status, frame, label)
+                workspace_agent_name = workspace_working_agent.get(wid, "")
+                line = compose_workspace_line(
+                    settings,
+                    display_status,
+                    frame,
+                    label,
+                    workspace_agent_name,
+                )
                 if workspace_shown.get(wid) != line:
                     report_workspace(source, wid, line, display_status)
                     workspace_shown[wid] = line
@@ -364,7 +476,7 @@ def stop(source: str) -> None:
         pid = int(pid_file.read_text(encoding="utf-8").strip())
         os.kill(pid, signal.SIGTERM)
 
-    for pane, _, _ in agents():
+    for pane, _, _, _ in agents():
         report(source, pane, None)
     for wid, _, _ in workspaces():
         report_workspace(source, wid, None)

@@ -53,3 +53,7 @@ To apply a preset:
 copy C:\Temp\DEV\herdr-indicators\config.nerd-font.example.toml %USERPROFILE%\.config\herdr\plugins\config\local.state-icons\config.toml
 herdr plugin action invoke local.state-icons.refresh
 ```
+
+## License
+
+MIT

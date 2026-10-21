@@ -28,6 +28,11 @@ Config path (after plugin link):
 - Windows: `%USERPROFILE%\.config\herdr\plugins\config\local.state-icons\config.toml`
 - macOS/Linux: `~/.config/herdr/plugins/config/local.state-icons/config.toml`
 
+The plugin now auto-creates this file on first run with a ready-to-use default
+config (icons, per-agent working frames, agent logos, and animation timings).
+If a config already exists, the plugin keeps user values and only appends missing
+keys/sections required by the plugin.
+
 The plugin reads two sections:
 
 ```toml
@@ -72,6 +77,28 @@ Behavior:
 - Any other agent in `working` -> uses `[icons].working`
 - `done/blocked/idle/unknown/needs-input` -> uses `[icons]` for all agents
 
+### Agent logos and display names
+
+You do not need extra config to run the plugin, but you **do** need these sections if you want
+custom logos and custom display names in the sidebar.
+
+```toml
+[agent-label-icons]
+claude = ""
+copilot = ""
+gpt = "\U000F9000"
+
+[agent-harness-labels]
+claude = "Claude"
+copilot = "Copilot"
+gpt = "GPT"
+```
+
+Behavior:
+- `agent-label-icons` sets the logo glyph shown next to the agent name
+- `agent-harness-labels` sets the displayed text label
+- if omitted, plugin defaults are used
+
 ## Presets
 
 - `config.example.toml`: ASCII-safe preset (works everywhere)
@@ -81,6 +108,13 @@ To apply a preset:
 
 ```bash
 copy C:\Temp\DEV\herdr-indicators\config.nerd-font.example.toml %USERPROFILE%\.config\herdr\plugins\config\local.state-icons\config.toml
+herdr plugin action invoke local.state-icons.refresh
+```
+
+If you want to recreate a fresh default config automatically, delete the file
+and run:
+
+```bash
 herdr plugin action invoke local.state-icons.refresh
 ```
 

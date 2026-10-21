@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -48,6 +49,34 @@ DEFAULT_AGENT_HARNESS_LABELS = {
 }
 AGENT_LABEL_TOKEN = "agent_logo_line"
 HARNESS_TOKEN = "harness"
+DEFAULT_CONFIG_TOML = """[icons]
+working = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+done = "󰄬"
+blocked = "󰅖"
+idle = "󰝦"
+unknown = "󰋗"
+needs-input = "󰋗"
+
+[agent-working-frames]
+claude = ["·", "✢", "*", "✻", "✽"]
+copilot = ["○", "◎", "◉", "●"]
+gpt = ["◈", "◇", "◈", "◇"]
+
+[agent-label-icons]
+claude = ""
+copilot = ""
+gpt = "\\U000F9000"
+
+[agent-harness-labels]
+claude = "Claude"
+copilot = "Copilot"
+gpt = "GPT"
+
+[animation]
+frame-seconds = 0.06
+done-hold-seconds = 5.0
+"""
+AUTOCONFIG_DEFAULTS = tomllib.loads(DEFAULT_CONFIG_TOML)
 
 
 @dataclass(frozen=True)
@@ -124,13 +153,120 @@ def config_path() -> Path:
     return Path.home() / ".config/herdr/plugins/config/local.state-icons/config.toml"
 
 
+def toml_literal(value: object) -> str:
+    if isinstance(value, str):
+        chunks: list[str] = []
+        for ch in value:
+            code = ord(ch)
+            if ch == "\\":
+                chunks.append("\\\\")
+            elif ch == '"':
+                chunks.append('\\"')
+            elif ch == "\n":
+                chunks.append("\\n")
+            elif ch == "\t":
+                chunks.append("\\t")
+            elif code > 0xFFFF:
+                chunks.append(f"\\U{code:08X}")
+            else:
+                chunks.append(ch)
+        return '"' + "".join(chunks) + '"'
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        return f"{value:g}"
+    if isinstance(value, (list, tuple)):
+        return "[" + ", ".join(toml_literal(item) for item in value) + "]"
+    return toml_literal(str(value))
+
+
+def append_missing_keys_in_section(text: str, section: str, missing_items: list[tuple[str, object]]) -> str:
+    if not missing_items:
+        return text
+    lines = text.splitlines(keepends=True)
+    pattern = re.compile(r"^\[([^\]]+)\]\s*$")
+    starts: list[tuple[int, str]] = []
+    for index, line in enumerate(lines):
+        match = pattern.match(line.strip())
+        if match:
+            starts.append((index, match.group(1)))
+
+    target_range: tuple[int, int] | None = None
+    for i, (start_idx, sec_name) in enumerate(starts):
+        if sec_name == section:
+            end_idx = starts[i + 1][0] if i + 1 < len(starts) else len(lines)
+            target_range = (start_idx, end_idx)
+            break
+
+    if target_range is None:
+        if text and not text.endswith("\n"):
+            text += "\n"
+        if text and not text.endswith("\n\n"):
+            text += "\n"
+        text += f"[{section}]\n"
+        for key, value in missing_items:
+            text += f"{key} = {toml_literal(value)}\n"
+        return text
+
+    _, end_idx = target_range
+    insertion = [f"{key} = {toml_literal(value)}\n" for key, value in missing_items]
+    lines[end_idx:end_idx] = insertion
+    return "".join(lines)
+
+
+def merge_missing_defaults(target: Path) -> None:
+    try:
+        original = target.read_text(encoding="utf-8")
+        parsed = tomllib.loads(original)
+    except (OSError, tomllib.TOMLDecodeError):
+        return
+
+    updated = original
+    changed = False
+    for section_name, section_defaults in AUTOCONFIG_DEFAULTS.items():
+        if not isinstance(section_defaults, dict):
+            continue
+        current = parsed.get(section_name)
+        if not isinstance(current, dict):
+            current = {}
+        missing: list[tuple[str, object]] = []
+        for key, default_value in section_defaults.items():
+            if key not in current:
+                missing.append((key, default_value))
+        if missing:
+            updated = append_missing_keys_in_section(updated, section_name, missing)
+            changed = True
+            parsed_section = parsed.get(section_name)
+            if not isinstance(parsed_section, dict):
+                parsed_section = {}
+                parsed[section_name] = parsed_section
+            for key, default_value in missing:
+                parsed_section[key] = default_value
+
+    if changed and updated != original:
+        target.write_text(updated, encoding="utf-8")
+
+
+def ensure_default_config(target: Path) -> None:
+    if target.is_file():
+        merge_missing_defaults(target)
+        return
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(DEFAULT_CONFIG_TOML, encoding="utf-8")
+
+
 def load_settings(path: Path | None = None) -> Settings:
     target = path or config_path()
+    ensure_default_config(target)
     if not target.is_file():
         return Settings()
-
-    with target.open("rb") as config_file:
-        config = tomllib.load(config_file)
+    try:
+        with target.open("rb") as config_file:
+            config = tomllib.load(config_file)
+    except (OSError, tomllib.TOMLDecodeError):
+        return Settings()
 
     icon_config = config.get("icons", {})
     agent_working_config = config.get("agent-working-frames", {})

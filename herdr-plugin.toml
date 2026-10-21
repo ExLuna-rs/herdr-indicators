@@ -1,0 +1,29 @@
+id = "local.state-icons"
+name = "State Icons (Cross Platform)"
+version = "0.1.0"
+min_herdr_version = "0.8.2"
+description = "Cross-platform lifecycle icons with animated working indicator"
+platforms = ["windows", "macos", "linux"]
+
+[[startup]]
+command = ["python", "state_icons.py"]
+
+[[events]]
+on = "pane.agent_detected"
+command = ["python", "state_icons.py"]
+
+[[events]]
+on = "pane.agent_status_changed"
+command = ["python", "state_icons.py"]
+
+[[actions]]
+id = "refresh"
+title = "State icons: refresh"
+contexts = ["global"]
+command = ["python", "state_icons.py"]
+
+[[actions]]
+id = "stop"
+title = "State icons: stop and clear"
+contexts = ["global"]
+command = ["python", "state_icons.py", "--stop"]

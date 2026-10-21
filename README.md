@@ -37,10 +37,17 @@ idle = "."
 unknown = "?"
 needs-input = "?"
 
+[agent-icons]
+claude = "✳"
+copilot = ""
+gpt = "🤖"
+
 [animation]
 frame-seconds = 0.15
 done-hold-seconds = 6.0
 ```
+
+`[agent-icons]` is optional. When present, working lines are rendered as `<agent-icon><spinner-frame>` (for example `⠋`) so each agent gets its own moving loader signature.
 
 ## Presets
 

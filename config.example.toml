@@ -6,6 +6,11 @@ idle = "."
 unknown = "?"
 needs-input = "?"
 
+[agent-icons]
+claude = "✳"
+copilot = ""
+gpt = "🤖"
+
 [animation]
 frame-seconds = 0.15
 done-hold-seconds = 6.0

@@ -42,6 +42,34 @@ frame-seconds = 0.15
 done-hold-seconds = 6.0
 ```
 
+### Fallback vs per-agent working frames
+
+`[icons]` is the global fallback for all statuses, and also the default `working` spinner.
+`[agent-working-frames]` overrides only `working` for matching agents.
+
+```toml
+[icons]
+# default spinner for unmapped agents
+working = ["⠋", "⠙", "⠹", "⠸"]
+# always used for non-working statuses
+done = "✓"
+blocked = "✗"
+idle = "·"
+unknown = "?"
+needs-input = "?"
+
+[agent-working-frames]
+# custom working spinner for Copilot
+copilot = ["○", "◎", "◉", "●"]
+# custom working spinner for Claude
+claude = ["·", "✢", "*", "✻", "✽"]
+```
+
+Behavior:
+- Copilot/Claude in `working` -> uses `agent-working-frames`
+- Any other agent in `working` -> uses `[icons].working`
+- `done/blocked/idle/unknown/needs-input` -> uses `[icons]` for all agents
+
 ## Presets
 
 - `config.example.toml`: ASCII-safe preset (works everywhere)

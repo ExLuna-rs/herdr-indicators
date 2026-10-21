@@ -6,11 +6,6 @@ idle = "󰝦"
 unknown = "󰋗"
 needs-input = "󰋗"
 
-[agent-icons]
-claude = ""
-copilot = ""
-gpt = "󰊤"
-
 [animation]
 frame-seconds = 0.10
 done-hold-seconds = 5.0

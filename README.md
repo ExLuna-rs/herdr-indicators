@@ -2,6 +2,8 @@
 
 Cross-platform HerdR state-icons plugin scaffold (Windows/macOS/Linux).
 
+![HerdR sidebar demo](assets/sidebar-live.gif)
+
 ## Local dev
 
 ```bash
@@ -81,16 +83,6 @@ To apply a preset:
 copy C:\Temp\DEV\herdr-indicators\config.nerd-font.example.toml %USERPROFILE%\.config\herdr\plugins\config\local.state-icons\config.toml
 herdr plugin action invoke local.state-icons.refresh
 ```
-
-## Sidebar preview
-
-Static example:
-
-![Sidebar example](assets/sidebar-example.png)
-
-Animated example:
-
-![Sidebar animation](assets/sidebar-example.gif)
 
 ## License
 

@@ -51,11 +51,11 @@ AGENT_LABEL_TOKEN = "agent_logo_line"
 HARNESS_TOKEN = "harness"
 DEFAULT_CONFIG_TOML = """[icons]
 working = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-done = "󰄬"
-blocked = "󰅖"
-idle = "󰝦"
-unknown = "󰋗"
-needs-input = "󰋗"
+done = "✓"
+blocked = "✗"
+idle = "·"
+unknown = "?"
+needs-input = "?"
 
 [agent-working-frames]
 claude = ["·", "✢", "*", "✻", "✽"]
@@ -63,9 +63,9 @@ copilot = ["○", "◎", "◉", "●"]
 gpt = ["◈", "◇", "◈", "◇"]
 
 [agent-label-icons]
-claude = ""
-copilot = ""
-gpt = "\\U000F9000"
+claude = "✻"
+copilot = "◎"
+gpt = "◇"
 
 [agent-harness-labels]
 claude = "Claude"

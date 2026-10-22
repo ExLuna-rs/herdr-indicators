@@ -338,19 +338,36 @@ def herdr(*args: str) -> dict:
         return {}
 
 
-def agents() -> list[tuple[str, str, str, str]]:
+def agents() -> list[tuple[str, str, str, str, bool]]:
     data = herdr("agent", "list")
-    out: list[tuple[str, str, str, str]] = []
+    out: list[tuple[str, str, str, str, bool]] = []
     for agent in data.get("result", {}).get("agents", []):
         pane = agent.get("pane_id")
         status = agent.get("agent_status")
         workspace = agent.get("workspace_id")
         tab = agent.get("tab_id")
         agent_name = agent.get("agent")
+        completion_seq = agent.get("completion_seq")
+        state_change_seq = agent.get("state_change_seq")
         if isinstance(pane, str) and isinstance(status, str):
             tab_id = tab if isinstance(tab, str) else ""
             workspace_id = workspace if isinstance(workspace, str) else tab_id.partition(":")[0]
-            out.append((pane, status, workspace_id, agent_name if isinstance(agent_name, str) else ""))
+            has_pending_completion = (
+                isinstance(state_change_seq, int)
+                and (
+                    not isinstance(completion_seq, int)
+                    or completion_seq < state_change_seq
+                )
+            )
+            out.append(
+                (
+                    pane,
+                    status,
+                    workspace_id,
+                    agent_name if isinstance(agent_name, str) else "",
+                    has_pending_completion,
+                )
+            )
     return out
 
 
@@ -366,9 +383,18 @@ def workspaces() -> list[tuple[str, str, str]]:
     return out
 
 
-def resolve_status(status: str, previous: str | None, done_deadline: float, now: float, hold: float) -> tuple[str, float]:
+def resolve_status(
+    status: str,
+    previous: str | None,
+    done_deadline: float,
+    now: float,
+    hold: float,
+    has_pending_completion: bool = False,
+) -> tuple[str, float]:
     if status == "working":
         return status, 0.0
+    if previous == "working" and has_pending_completion:
+        return "working", 0.0
     if previous == "working" and status in ("idle", "done"):
         done_deadline = now + hold
     if now < done_deadline:
@@ -519,20 +545,21 @@ def animate(source: str, settings: Settings) -> int:
             labels = {wid: label for wid, label, _ in current_workspaces}
             current_agents = agents()
             workspace_working_agent: dict[str, str] = {}
-            for _, agent_status, workspace_id, agent_name in current_agents:
+            for _, agent_status, workspace_id, agent_name, _ in current_agents:
                 if agent_status == "working" and workspace_id and workspace_id not in workspace_working_agent:
                     workspace_working_agent[workspace_id] = agent_name
-            live_panes = {pane for pane, _, _, _ in current_agents}
+            live_panes = {pane for pane, _, _, _, _ in current_agents}
             live_workspaces = {wid for wid, _, _ in current_workspaces}
             keep_running = False
 
-            for pane, status, workspace_id, agent_name in current_agents:
+            for pane, status, workspace_id, agent_name, has_pending_completion in current_agents:
                 display_status, deadline = resolve_status(
                     status,
                     pane_previous.get(pane),
                     pane_done_until.get(pane, 0.0),
                     now,
                     settings.done_hold_seconds,
+                    has_pending_completion,
                 )
                 pane_previous[pane] = status
                 if deadline:

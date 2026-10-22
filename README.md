@@ -15,7 +15,8 @@ Cross-platform HerdR state-icons plugin scaffold (Windows/macOS/Linux).
 Install directly from GitHub:
 
 ```bash
-herdr plugin add ExLuna-rs/herdr-indicators --enable
+herdr plugin install ExLuna-rs/herdr-indicators --yes
+herdr plugin enable local.state-icons
 ```
 
 Verify installation:

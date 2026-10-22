@@ -1,8 +1,40 @@
 # herdr-indicators
 
+[![plugin](https://img.shields.io/badge/plugin-local.state--icons-6f42c1)](https://github.com/ExLuna-rs/herdr-indicators)
+[![version](https://img.shields.io/badge/version-0.1.1-blue)](https://github.com/ExLuna-rs/herdr-indicators/releases)
+[![herdr](https://img.shields.io/badge/herdr-%3E%3D0.8.2-0ea5e9)](https://github.com/withherdr/herdr)
+[![python](https://img.shields.io/badge/python-%3E%3D3.11-3776AB?logo=python&logoColor=white)](https://www.python.org)
+[![platforms](https://img.shields.io/badge/platforms-windows%20%7C%20macos%20%7C%20linux-22c55e)](https://github.com/ExLuna-rs/herdr-indicators)
+
 Cross-platform HerdR state-icons plugin scaffold (Windows/macOS/Linux).
 
 ![HerdR sidebar demo](assets/sidebar-live.gif)
+
+## Install (recommended)
+
+Install directly from GitHub:
+
+```bash
+herdr plugin add ExLuna-rs/herdr-indicators --enable
+```
+
+Verify installation:
+
+```bash
+herdr plugin list
+```
+
+Update to latest version:
+
+```bash
+herdr plugin update local.state-icons
+```
+
+Apply/reload config after install or update:
+
+```bash
+herdr plugin action invoke local.state-icons.refresh
+```
 
 ## Local dev
 
@@ -30,6 +62,7 @@ Config path (after plugin link):
 
 The plugin now auto-creates this file on first run with a ready-to-use default
 config (icons, per-agent working frames, agent logos, and animation timings).
+This means a preconfigured setup is loaded by default, with no manual copy/paste.
 If a config already exists, the plugin keeps user values and only appends missing
 keys/sections required by the plugin.
 

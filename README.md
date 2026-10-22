@@ -1,7 +1,7 @@
 # herdr-indicators
 
 [![plugin](https://img.shields.io/badge/plugin-local.state--icons-6f42c1)](https://github.com/ExLuna-rs/herdr-indicators)
-[![version](https://img.shields.io/badge/version-0.1.3-blue)](https://github.com/ExLuna-rs/herdr-indicators/releases)
+[![version](https://img.shields.io/badge/version-0.1.4-blue)](https://github.com/ExLuna-rs/herdr-indicators/releases)
 [![herdr](https://img.shields.io/badge/herdr-%3E%3D0.8.2-0ea5e9)](https://github.com/withherdr/herdr)
 [![python](https://img.shields.io/badge/python-%3E%3D3.11-3776AB?logo=python&logoColor=white)](https://www.python.org)
 [![platforms](https://img.shields.io/badge/platforms-windows%20%7C%20macos%20%7C%20linux-22c55e)](https://github.com/ExLuna-rs/herdr-indicators)
@@ -44,10 +44,24 @@ herdr plugin list
 
 You should see `local.state-icons ... enabled`.
 
-### 2. Show the icons in the sidebar
+### 2. Auto-configure the sidebar
 
 The plugin publishes the icons as sidebar **tokens**, but HerdR only displays them if your
-`config.toml` references those tokens. Add this to your HerdR config
+`config.toml` references those tokens. One action does it for you:
+
+```bash
+herdr plugin action invoke local.state-icons.setup
+```
+
+It adds `[ui.sidebar.agents]` and `[ui.sidebar.spaces]` rows using the plugin tokens, saves a backup
+(`config.toml.state-icons.bak`), reloads HerdR's config and starts the animator. It is safe to run
+again: sections that already use the tokens are skipped, and sections you customized
+(with your own `rows`) are left untouched and reported, so you can add the tokens manually.
+
+<details>
+<summary>Manual setup (if you prefer, or have custom rows)</summary>
+
+Add this to your HerdR config
 (Windows: `%USERPROFILE%\.config\herdr\config.toml`, macOS/Linux: `~/.config/herdr/config.toml`):
 
 ```toml
@@ -77,15 +91,12 @@ rows = [
 ]
 ```
 
+Then run `herdr server reload-config`.
+
+</details>
+
 Only one of the `*_line` tokens is active at a time (the one matching the current status),
 so each status can have its own color. Adjust the colors and rows to taste.
-
-### 3. Reload
-
-```bash
-herdr server reload-config
-herdr plugin action invoke local.state-icons.refresh
-```
 
 The plugin also starts by itself on HerdR startup and on every agent status change.
 
@@ -93,7 +104,7 @@ The plugin also starts by itself on HerdR startup and on every agent status chan
 
 | Symptom | Fix |
 |---|---|
-| Nothing shows in the sidebar | Step 2 is missing: add the `$state_*` / `$space_*` tokens to `config.toml`, then `herdr server reload-config`. |
+| Nothing shows in the sidebar | Run `herdr plugin action invoke local.state-icons.setup` (adds the `$state_*` / `$space_*` tokens to `config.toml`). |
 | Plugin listed as `disabled` | `herdr plugin enable local.state-icons` |
 | Icons appear as empty boxes or `?` | Your terminal font lacks those glyphs. Keep the default config, or use the ASCII preset (see [Fonts and glyphs](#fonts-and-glyphs)). |
 | Config changes are ignored | `herdr plugin action invoke local.state-icons.refresh` |
@@ -114,6 +125,7 @@ herdr plugin uninstall local.state-icons
 | Action | What it does |
 |---|---|
 | `local.state-icons.refresh` | Start the animator and re-read the config |
+| `local.state-icons.setup` | Add the sidebar token rows to HerdR's `config.toml` (with backup), then start the animator |
 | `local.state-icons.stop` | Stop the animator and clear all icons |
 
 ```bash

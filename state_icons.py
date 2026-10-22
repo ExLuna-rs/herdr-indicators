@@ -466,6 +466,102 @@ def report_workspace(source: str, workspace: str, line: str | None, status: str 
     herdr(*args)
 
 
+SIDEBAR_STATUS_COLORS = (
+    ("working", "#ffc799"),
+    ("done", "#66ddcc"),
+    ("blocked", "#ff3b5c"),
+    ("idle", "#39ff88"),
+    ("unknown", "#5c5c5c"),
+)
+SIDEBAR_PREFIXES = {"spaces": "space", "agents": "state"}
+
+
+def herdr_config_path() -> Path:
+    override = os.environ.get("HERDR_CONFIG_PATH")
+    if override:
+        return Path(override)
+    return Path.home() / ".config/herdr/config.toml"
+
+
+def sidebar_block(kind: str, newline: str = "\n") -> str:
+    prefix = SIDEBAR_PREFIXES[kind]
+    lines = [f"[ui.sidebar.{kind}]", "rows = ["]
+    lines.append("  [")
+    for status, color in SIDEBAR_STATUS_COLORS:
+        lines.append(f'    {{ token = "${prefix}_{status}_line", fg = "{color}", bold = true }},')
+    if kind == "agents":
+        lines.append('    "tab",')
+        lines.append("  ],")
+        lines.append('  ["agent", "$harness"],')
+    else:
+        lines.append("  ],")
+        lines.append('  ["branch", "git_status"],')
+    lines.append("]")
+    return newline.join(lines) + newline
+
+
+def sidebar_has_tokens(parsed: dict, kind: str) -> bool:
+    section = parsed.get("ui", {}).get("sidebar", {}).get(kind)
+    if not isinstance(section, dict):
+        return False
+    prefix = SIDEBAR_PREFIXES[kind]
+    return f"${prefix}_" in json.dumps(section.get("rows", []))
+
+
+def sidebar_section_exists(parsed: dict, kind: str) -> bool:
+    return isinstance(parsed.get("ui", {}).get("sidebar", {}).get(kind), dict)
+
+
+def setup_sidebar(path: Path | None = None, reload: bool = True) -> list[str]:
+    """Add the sidebar token rows to the HerdR config. Returns human-readable messages."""
+    target = path or herdr_config_path()
+    messages: list[str] = []
+    if target.is_file():
+        with target.open(encoding="utf-8", newline="") as handle:
+            original = handle.read()
+        try:
+            parsed = tomllib.loads(original)
+        except tomllib.TOMLDecodeError as error:
+            return [f"Cannot parse {target}: {error}. Nothing changed."]
+    else:
+        original = ""
+        parsed = {}
+
+    newline = "\r\n" if "\r\n" in original else "\n"
+    updated = original
+    for kind in SIDEBAR_PREFIXES:
+        if sidebar_has_tokens(parsed, kind):
+            messages.append(f"[ui.sidebar.{kind}] already uses state-icons tokens: skipped.")
+        elif sidebar_section_exists(parsed, kind):
+            messages.append(
+                f"[ui.sidebar.{kind}] already exists with custom rows: not modified. "
+                f"Add the tokens manually (see README)."
+            )
+        else:
+            if updated and not updated.endswith(newline):
+                updated += newline
+            if updated:
+                updated += newline
+            updated += sidebar_block(kind, newline)
+            messages.append(f"[ui.sidebar.{kind}] added.")
+
+    if updated == original:
+        return messages
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if original:
+        backup = target.with_name(f"{target.name}.state-icons.bak")
+        backup.write_text(original, encoding="utf-8", newline="")
+        messages.append(f"Backup saved to {backup}.")
+    with target.open("w", encoding="utf-8", newline="") as handle:
+        handle.write(updated)
+    messages.append(f"Updated {target}.")
+    if reload:
+        herdr("server", "reload-config")
+        messages.append("Requested config reload.")
+    return messages
+
+
 def state_dir() -> Path:
     plugin_id = os.environ.get("HERDR_PLUGIN_ID", "local.state-icons")
     plugin_slug = "".join(ch if ch.isalnum() else "-" for ch in plugin_id).strip("-").lower()
@@ -654,6 +750,11 @@ def main() -> int:
         return animate(source, load_settings())
     if arg == "--stop":
         stop(source)
+        return 0
+    if arg == "--setup":
+        for message in setup_sidebar():
+            print(message)
+        spawn_animator()
         return 0
 
     spawn_animator()

@@ -1,6 +1,6 @@
 id = "local.state-icons"
 name = "State Icons (Cross Platform)"
-version = "0.1.3"
+version = "0.1.4"
 min_herdr_version = "0.8.2"
 description = "Cross-platform lifecycle icons with animated working indicator"
 platforms = ["windows", "macos", "linux"]
@@ -21,6 +21,12 @@ id = "refresh"
 title = "State icons: refresh"
 contexts = ["global"]
 command = ["python", "state_icons.py"]
+
+[[actions]]
+id = "setup"
+title = "State icons: auto-configure sidebar"
+contexts = ["global"]
+command = ["python", "state_icons.py", "--setup"]
 
 [[actions]]
 id = "stop"

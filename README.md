@@ -1,7 +1,7 @@
 # herdr-indicators
 
 [![plugin](https://img.shields.io/badge/plugin-local.state--icons-6f42c1)](https://github.com/ExLuna-rs/herdr-indicators)
-[![version](https://img.shields.io/badge/version-0.1.1-blue)](https://github.com/ExLuna-rs/herdr-indicators/releases)
+[![version](https://img.shields.io/badge/version-0.1.2-blue)](https://github.com/ExLuna-rs/herdr-indicators/releases)
 [![herdr](https://img.shields.io/badge/herdr-%3E%3D0.8.2-0ea5e9)](https://github.com/withherdr/herdr)
 [![python](https://img.shields.io/badge/python-%3E%3D3.11-3776AB?logo=python&logoColor=white)](https://www.python.org)
 [![platforms](https://img.shields.io/badge/platforms-windows%20%7C%20macos%20%7C%20linux-22c55e)](https://github.com/ExLuna-rs/herdr-indicators)

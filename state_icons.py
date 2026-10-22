@@ -32,16 +32,82 @@ DEFAULT_ICONS = {
     "unknown": "?",
     "needs-input": "?",
 }
-DEFAULT_AGENT_WORKING_FRAMES = {
-    "claude": ("✶", "✷", "✸", "✹", "✺", "✻"),
-    "copilot": ("◉", "◎", "◉", "◎"),
+def _icons(done: str, blocked: str, idle: str, unknown: str) -> dict[str, str]:
+    return {"done": done, "blocked": blocked, "idle": idle, "unknown": unknown, "needs-input": unknown}
+
+
+UNICODE_AGENT_FRAMES = {
+    "claude": ("·", "✢", "*", "✻", "✽"),
+    "copilot": ("○", "◎", "◉", "●"),
     "gpt": ("◈", "◇", "◈", "◇"),
 }
-DEFAULT_AGENT_LABEL_ICONS = {
-    "claude": "✻",
-    "copilot": "◎",
-    "gpt": "◇",
+UNICODE_LABEL_ICONS = {"claude": "✻", "copilot": "◎", "gpt": "◇"}
+SAFE_ICONS = _icons("[+]", "[!]", "[.]", "[?]")
+PRESETS: dict[str, dict] = {
+    # Standard Unicode symbols: render with any modern terminal font.
+    "unicode": {
+        "frames": ("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"),
+        "icons": _icons("✓", "✗", "·", "?"),
+        "agent_frames": UNICODE_AGENT_FRAMES,
+        "label_icons": UNICODE_LABEL_ICONS,
+        "frame_seconds": 0.06,
+    },
+    # Requires a Nerd Font set as the terminal font.
+    "nerd": {
+        "frames": tuple(chr(code) for code in range(0xF0A9E, 0xF0AA6)),
+        "icons": _icons("\U000F012C", "\U000F0156", "\U000F0766", "\U000F02D7"),
+        "agent_frames": UNICODE_AGENT_FRAMES,
+        "label_icons": {"claude": "\uEC82", "copilot": "\uEC1E", "gpt": "\U000F9000"},
+        "frame_seconds": 0.10,
+    },
+    # Pure ASCII presets: work everywhere, even over SSH or on bare consoles.
+    "ascii": {
+        "frames": ("|", "/", "-", "\\"),
+        "icons": _icons("+", "!", ".", "?"),
+        "agent_frames": {},
+        "label_icons": {},
+        "frame_seconds": 0.12,
+    },
+    "ascii-dots": {
+        "frames": (".  ", ".. ", "...", " ..", "  ."),
+        "icons": SAFE_ICONS,
+        "agent_frames": {},
+        "label_icons": {},
+        "frame_seconds": 0.25,
+    },
+    "ascii-bar": {
+        "frames": ("[=  ]", "[ = ]", "[  =]", "[ = ]"),
+        "icons": _icons("[ + ]", "[ ! ]", "[ . ]", "[ ? ]"),
+        "agent_frames": {},
+        "label_icons": {},
+        "frame_seconds": 0.12,
+    },
+    "ascii-bounce": {
+        "frames": ("o  ", " o ", "  o", " o "),
+        "icons": SAFE_ICONS,
+        "agent_frames": {},
+        "label_icons": {},
+        "frame_seconds": 0.15,
+    },
+    # Block and geometric shapes found in nearly every font.
+    "blocks": {
+        "frames": ("░", "▒", "▓", "█", "▓", "▒"),
+        "icons": _icons("■", "▲", "□", "?"),
+        "agent_frames": {},
+        "label_icons": {},
+        "frame_seconds": 0.10,
+    },
+    "pulse": {
+        "frames": ("○", "◎", "●", "◎"),
+        "icons": _icons("■", "▲", "□", "?"),
+        "agent_frames": {},
+        "label_icons": {},
+        "frame_seconds": 0.20,
+    },
 }
+DEFAULT_PRESET = "unicode"
+DEFAULT_AGENT_WORKING_FRAMES = UNICODE_AGENT_FRAMES
+DEFAULT_AGENT_LABEL_ICONS = UNICODE_LABEL_ICONS
 DEFAULT_AGENT_HARNESS_LABELS = {
     "claude": "Claude",
     "copilot": "Copilot",
@@ -49,23 +115,10 @@ DEFAULT_AGENT_HARNESS_LABELS = {
 }
 AGENT_LABEL_TOKEN = "agent_logo_line"
 HARNESS_TOKEN = "harness"
-DEFAULT_CONFIG_TOML = """[icons]
-working = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-done = "✓"
-blocked = "✗"
-idle = "·"
-unknown = "?"
-needs-input = "?"
-
-[agent-working-frames]
-claude = ["·", "✢", "*", "✻", "✽"]
-copilot = ["○", "◎", "◉", "●"]
-gpt = ["◈", "◇", "◈", "◇"]
-
-[agent-label-icons]
-claude = "✻"
-copilot = "◎"
-gpt = "◇"
+DEFAULT_CONFIG_TOML = f"""# Icon set. One of: {", ".join(PRESETS)}
+# Values in [icons], [agent-working-frames], [agent-label-icons] and
+# [animation] frame-seconds override the preset; remove them to use it as-is.
+preset = "{DEFAULT_PRESET}"
 
 [agent-harness-labels]
 claude = "Claude"
@@ -73,7 +126,6 @@ copilot = "Copilot"
 gpt = "GPT"
 
 [animation]
-frame-seconds = 0.06
 done-hold-seconds = 5.0
 """
 AUTOCONFIG_DEFAULTS = tomllib.loads(DEFAULT_CONFIG_TOML)
@@ -274,17 +326,27 @@ def load_settings(path: Path | None = None) -> Settings:
     agent_harness_config = config.get("agent-harness-labels", {})
     animation = config.get("animation", {})
 
-    frames = icon_config.get("working", DEFAULT_FRAMES)
+    preset_name = config.get("preset", DEFAULT_PRESET)
+    if not isinstance(preset_name, str) or preset_name.strip().lower() not in PRESETS:
+        preset_name = DEFAULT_PRESET
+    preset = PRESETS[preset_name.strip().lower()]
+
+    if not isinstance(icon_config, dict):
+        icon_config = {}
+    if not isinstance(animation, dict):
+        animation = {}
+
+    frames = icon_config.get("working", preset["frames"])
     if not isinstance(frames, list) or not frames or not all(isinstance(x, str) and x for x in frames):
-        frames = DEFAULT_FRAMES
+        frames = preset["frames"]
 
     icons = {
         state: icon_config.get(state, default)
         if isinstance(icon_config.get(state, default), str)
         else default
-        for state, default in DEFAULT_ICONS.items()
+        for state, default in preset["icons"].items()
     }
-    agent_working_frames: dict[str, tuple[str, ...]] = dict(DEFAULT_AGENT_WORKING_FRAMES)
+    agent_working_frames: dict[str, tuple[str, ...]] = dict(preset["agent_frames"])
     if isinstance(agent_working_config, dict):
         for raw_key, raw_value in agent_working_config.items():
             if not isinstance(raw_key, str):
@@ -294,7 +356,7 @@ def load_settings(path: Path | None = None) -> Settings:
                 if parsed:
                     agent_working_frames[raw_key.strip().lower()] = parsed
 
-    agent_label_icons: dict[str, str] = dict(DEFAULT_AGENT_LABEL_ICONS)
+    agent_label_icons: dict[str, str] = dict(preset["label_icons"])
     if isinstance(agent_label_config, dict):
         for raw_key, raw_value in agent_label_config.items():
             if isinstance(raw_key, str) and isinstance(raw_value, str) and raw_value:
@@ -306,7 +368,7 @@ def load_settings(path: Path | None = None) -> Settings:
             if isinstance(raw_key, str) and isinstance(raw_value, str) and raw_value:
                 agent_harness_labels[raw_key.strip().lower()] = raw_value
 
-    frame_seconds = animation.get("frame-seconds", 0.15)
+    frame_seconds = animation.get("frame-seconds", preset["frame_seconds"])
     done_hold_seconds = animation.get("done-hold-seconds", 6.0)
 
     return Settings(
@@ -315,7 +377,7 @@ def load_settings(path: Path | None = None) -> Settings:
         agent_working_frames=tuple(agent_working_frames.items()),
         agent_label_icons=tuple(agent_label_icons.items()),
         agent_harness_labels=tuple(agent_harness_labels.items()),
-        frame_seconds=frame_seconds if isinstance(frame_seconds, (int, float)) and frame_seconds > 0 else 0.15,
+        frame_seconds=frame_seconds if isinstance(frame_seconds, (int, float)) and frame_seconds > 0 else preset["frame_seconds"],
         done_hold_seconds=done_hold_seconds if isinstance(done_hold_seconds, (int, float)) and done_hold_seconds >= 0 else 6.0,
     )
 

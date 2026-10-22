@@ -1,16 +1,10 @@
-[icons]
-working = ["\U000F0A9E", "\U000F0A9F", "\U000F0AA0", "\U000F0AA1", "\U000F0AA2", "\U000F0AA3", "\U000F0AA4", "\U000F0AA5"]
-done = "\U000F012C"
-blocked = "\U000F0156"
-idle = "\U000F0766"
-unknown = "\U000F02D7"
-needs-input = "\U000F02D7"
+# Nerd Font preset: requires a Nerd Font (https://www.nerdfonts.com) set as the terminal font.
+preset = "nerd"
 
-[agent-label-icons]
-claude = "\uEC82"
-copilot = "\uEC1E"
-gpt = "\U000F9000"
+[agent-harness-labels]
+claude = "Claude"
+copilot = "Copilot"
+gpt = "GPT"
 
 [animation]
-frame-seconds = 0.10
 done-hold-seconds = 5.0

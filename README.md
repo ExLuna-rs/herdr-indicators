@@ -1,7 +1,7 @@
 # herdr-indicators
 
 [![plugin](https://img.shields.io/badge/plugin-local.state--icons-6f42c1)](https://github.com/ExLuna-rs/herdr-indicators)
-[![version](https://img.shields.io/badge/version-0.1.4-blue)](https://github.com/ExLuna-rs/herdr-indicators/releases)
+[![version](https://img.shields.io/badge/version-0.1.5-blue)](https://github.com/ExLuna-rs/herdr-indicators/releases)
 [![herdr](https://img.shields.io/badge/herdr-%3E%3D0.8.2-0ea5e9)](https://github.com/withherdr/herdr)
 [![python](https://img.shields.io/badge/python-%3E%3D3.11-3776AB?logo=python&logoColor=white)](https://www.python.org)
 [![platforms](https://img.shields.io/badge/platforms-windows%20%7C%20macos%20%7C%20linux-22c55e)](https://github.com/ExLuna-rs/herdr-indicators)
@@ -20,7 +20,7 @@ Each agent pane and each workspace shows whether the agent is **working**, **don
 - "Done" icon held for a few seconds after a task finishes so you notice it.
 - Agent logo and display name in the sidebar.
 - Works on Windows, macOS and Linux. Only needs Python 3.11+.
-- Portable defaults: standard Unicode symbols, no special font required.
+- Portable defaults and 8 icon presets (Unicode, ASCII animations, blocks, Nerd Font): no special font required.
 
 ## Requirements
 
@@ -106,7 +106,7 @@ The plugin also starts by itself on HerdR startup and on every agent status chan
 |---|---|
 | Nothing shows in the sidebar | Run `herdr plugin action invoke local.state-icons.setup` (adds the `$state_*` / `$space_*` tokens to `config.toml`). |
 | Plugin listed as `disabled` | `herdr plugin enable local.state-icons` |
-| Icons appear as empty boxes or `?` | Your terminal font lacks those glyphs. Keep the default config, or use the ASCII preset (see [Fonts and glyphs](#fonts-and-glyphs)). |
+| Icons appear as empty boxes or `?` | Your terminal font lacks those glyphs. Set `preset = "ascii"` (or another `ascii*` preset), see [Presets](#presets). |
 | Config changes are ignored | `herdr plugin action invoke local.state-icons.refresh` |
 | Spinner stuck after a crash | `herdr plugin action invoke local.state-icons.stop`, then `refresh`. |
 | `python` not found | Install Python 3.11+ and make sure `python` is on your `PATH`. |
@@ -154,23 +154,7 @@ only missing keys are appended.
 Default config:
 
 ```toml
-[icons]
-working = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-done = "✓"
-blocked = "✗"
-idle = "·"
-unknown = "?"
-needs-input = "?"
-
-[agent-working-frames]
-claude = ["·", "✢", "*", "✻", "✽"]
-copilot = ["○", "◎", "◉", "●"]
-gpt = ["◈", "◇", "◈", "◇"]
-
-[agent-label-icons]
-claude = "✻"
-copilot = "◎"
-gpt = "◇"
+preset = "unicode"
 
 [agent-harness-labels]
 claude = "Claude"
@@ -178,19 +162,42 @@ copilot = "Copilot"
 gpt = "GPT"
 
 [animation]
-frame-seconds = 0.06
 done-hold-seconds = 5.0
 ```
 
-### Sections
+The easiest customization is to change `preset` (see [Presets](#presets)), then run
+`herdr plugin action invoke local.state-icons.refresh`.
+
+### Overrides
+
+Anything in these optional sections overrides the preset. Remove a key to fall back to the preset.
 
 | Section | Purpose |
 |---|---|
-| `[icons]` | Glyph for each status. `working` is a list of spinner frames and is the fallback for all agents. |
+| `[icons]` | Glyph for each status (`done`, `blocked`, `idle`, `unknown`, `needs-input`). `working` is a list of spinner frames and is the fallback for all agents. |
 | `[agent-working-frames]` | Per-agent spinner frames, overriding `[icons].working`. The key is the lowercase agent name. |
 | `[agent-label-icons]` | Logo shown next to the agent name (`$agent_logo_line`). |
 | `[agent-harness-labels]` | Display name shown for the agent (`$harness`). Unknown agents show their raw name. |
-| `[animation]` | `frame-seconds`: delay between spinner frames. `done-hold-seconds`: how long "done" stays visible. |
+| `[animation]` | `frame-seconds`: delay between spinner frames (default depends on the preset). `done-hold-seconds`: how long "done" stays visible. |
+
+```toml
+preset = "unicode"
+
+[icons]
+done = "OK"
+
+[agent-working-frames]
+copilot = ["○", "◎", "◉", "●"]
+
+[animation]
+frame-seconds = 0.1
+```
+
+`config.example.toml` is a commented reference with every option.
+
+> **Upgrading from 0.1.3 or older?** Those versions wrote explicit `[icons]`, `[agent-working-frames]`
+> and `[agent-label-icons]` sections into your config, and they override the preset. Delete them (or
+> delete `config.toml` and run `refresh`) to use a preset.
 
 Status resolution:
 
@@ -200,35 +207,34 @@ Status resolution:
 - If HerdR still reports a pending completion (for example while a background shell is running),
   the status stays `working` until it is really finished.
 
-To start over, delete `config.toml` and run `herdr plugin action invoke local.state-icons.refresh`.
-
-## Fonts and glyphs
+## Presets
 
 Glyphs are drawn by **your terminal's font**, not by the plugin, and a plugin cannot ship a font.
-For that reason the default config only uses standard Unicode symbols, which render with
-any modern terminal font.
+The default `unicode` preset only uses standard symbols that render with any modern terminal font.
+The `ascii*` presets only use keyboard characters and work everywhere, even over SSH.
 
-| Preset | Needs | File |
-|---|---|---|
-| Default (Unicode) | Any modern font | auto-generated |
-| ASCII | Nothing, works everywhere | `config.example.toml` |
-| Nerd Font | A [Nerd Font](https://www.nerdfonts.com) set as the terminal font | `config.nerd-font.example.toml` |
+| Preset | Spinner | Done / blocked / idle | Font needed |
+|---|---|---|---|
+| `unicode` (default) | `⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`, per-agent spinners and logos | `✓ ✗ ·` | Any modern font |
+| `ascii` | `\| / - \` | `+ ! .` | None |
+| `ascii-dots` | `.  ` `.. ` `...` ` ..` | `[+] [!] [.]` | None |
+| `ascii-bar` | `[=  ]` `[ = ]` `[  =]` | `[ + ] [ ! ] [ . ]` | None |
+| `ascii-bounce` | `o  ` ` o ` `  o` | `[+] [!] [.]` | None |
+| `blocks` | `░▒▓█▓▒` | `■ ▲ □` | Almost any font |
+| `pulse` | `○◎●◎` | `■ ▲ □` | Almost any font |
+| `nerd` | Nerd Font circles, per-agent logos | Nerd Font icons | A [Nerd Font](https://www.nerdfonts.com) as terminal font |
 
-Apply a preset (Windows):
+Pick one by editing `config.toml`:
+
+```toml
+preset = "ascii-bar"
+```
 
 ```bash
-copy config.nerd-font.example.toml %USERPROFILE%\.config\herdr\plugins\config\local.state-icons\config.toml
 herdr plugin action invoke local.state-icons.refresh
 ```
 
-Apply a preset (macOS / Linux):
-
-```bash
-cp config.nerd-font.example.toml ~/.config/herdr/plugins/config/local.state-icons/config.toml
-herdr plugin action invoke local.state-icons.refresh
-```
-
-If you see empty boxes with the Nerd Font preset, your terminal font is not a Nerd Font.
+If you see empty boxes, your terminal font lacks those glyphs: switch to an `ascii*` preset.
 
 ## Local development
 

@@ -1,11 +1,28 @@
-[icons]
-working = ["|", "/", "-", "\\"]
-done = "+"
-blocked = "!"
-idle = "."
-unknown = "?"
-needs-input = "?"
+# Full reference config. Everything except `preset` is optional.
+#
+# preset: unicode (default) | nerd | ascii | ascii-dots | ascii-bar | ascii-bounce | blocks | pulse
+preset = "ascii"
+
+# Optional overrides on top of the preset (uncomment to use).
+# [icons]
+# working = ["|", "/", "-", "\\"]
+# done = "+"
+# blocked = "!"
+# idle = "."
+# unknown = "?"
+# needs-input = "?"
+#
+# [agent-working-frames]
+# copilot = ["o", "O", "0", "O"]
+#
+# [agent-label-icons]
+# copilot = "*"
+
+[agent-harness-labels]
+claude = "Claude"
+copilot = "Copilot"
+gpt = "GPT"
 
 [animation]
-frame-seconds = 0.15
-done-hold-seconds = 6.0
+# frame-seconds = 0.12
+done-hold-seconds = 5.0

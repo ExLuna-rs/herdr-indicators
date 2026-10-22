@@ -1,6 +1,6 @@
 id = "local.state-icons"
 name = "State Icons (Cross Platform)"
-version = "0.1.4"
+version = "0.1.5"
 min_herdr_version = "0.8.2"
 description = "Cross-platform lifecycle icons with animated working indicator"
 platforms = ["windows", "macos", "linux"]
